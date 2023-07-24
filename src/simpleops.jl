@@ -2,7 +2,10 @@
 using Statistics
 using CurveFit
 
-export demean, detrend, samptimes, levelcrossings
+export demean, detrend, samptimes
+export levelcrossings_index, crossingpoints
+export levelcrossings
+
 """
 `demean(x::AbstractVector)`
 
@@ -32,8 +35,17 @@ samptimes(fs, x::AbstractVector{T}; t0=0) where {T} = samptimes(T, fs, length(x)
 
 
 
-    
-function levelcrossings(x::AbstractVector, xlev=0; up=true)
+"""
+`levelcrossings_index(x::AbstractVector, xlev=0; up=true)`
+
+Find the indices of array `x` where it passes the level `xlev=0`.
+
+If `up=true`, search only when the `x` is increasing.
+If it is `false`, seearch the cases when `x` is decreasing.
+
+
+"""
+function levelcrossings_index(x::AbstractVector, xlev=0; up=true)
 
     # We also want to search always up! So we invert the signal if the search
     # should be down
@@ -58,7 +70,37 @@ function levelcrossings(x::AbstractVector, xlev=0; up=true)
         end
         xprev = xnext
     end
-
+    # Check whether the last point is zero
+    if xprev == 0
+        δx = -s*x[end-1]
+        if δx > 0
+            push!(segments, lastindex(x)-1)
+        end
+    end
     return segments
 end
+
+linear_interp((t1,t2), (x1,x2), x) = t1 + (x-x1)/(x2-x1)  *  (t2-t1)
+
+crossingpoints(t::AbstractVector,x::AbstractVector,
+               idx::AbstractVector{<:Integer}, xlev=0) =
+                   [linear_interp( (t[i], t[i+1]),
+                                   (x[i], x[i+1]),
+                                   xlev) for i in idx]
+
+
+function levelcrossings(t::AbstractVector, x::AbstractVector, xlev=0; up=true)
+    idx = levelcrossings_index(x, xlev; up=up)
+    return crossingpoints(t, x, idx, xlev)
+end
+
+levelcrossings(x::AbstractVector, xlev=0; up=true) =
+    levelcrossings(eachindex(x), x, xlev; up=up)
+
+
+
+    
+                            
+    
+
 
