@@ -1,5 +1,6 @@
 module DataExplorer
 
-# Write your package code here.
+
+include("simpleops.jl")
 
 end
