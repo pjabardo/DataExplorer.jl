@@ -29,6 +29,8 @@ function detrend(x::AbstractVector)
     return x .- (a₁ .+ a₂ .* t)
 end
 
+
+    
 samptimes(::Type{T}, fs::T, N; t0=0) where {T} = range(T(t0), step=T(1)/T(fs), length=N)
 samptimes(fs, N; t0=0.0) = range(t0, step=1/fs, length=N)
 samptimes(fs, x::AbstractVector{T}; t0=0) where {T} = samptimes(T, fs, length(x); t0=t0)
@@ -43,10 +45,14 @@ Find the indices of array `x` where it passes the level `xlev=0`.
 If `up=true`, search only when the `x` is increasing.
 If it is `false`, seearch the cases when `x` is decreasing.
 
+By default, the function searches only when passing the level from a single direction
+(up or down). If both directions are necessary, specify `bothdirs=true`.
+
 
 """
-function levelcrossings_index(x::AbstractVector, xlev=0; up=true)
+function levelcrossings_index(x::AbstractVector, xlev=0; up=true, bothdirs=false)
 
+    
     # We also want to search always up! So we invert the signal if the search
     # should be down
     if up
@@ -61,20 +67,31 @@ function levelcrossings_index(x::AbstractVector, xlev=0; up=true)
     for i in firstindex(x)+1:lastindex(x)
         xnext = s * (x[i] - xlev)
         δx = xnext - xprev
-        if δx > 0
-            if xnext*xprev < 0
-                push!(segments, i-1)
-            elseif xprev==0
-                push!(segments, i-1)
+        sinv = xnext * xprev < 0  # Sign inversion
+        push_seg = false
+        if sinv
+            if bothdirs
+                push_seg = true
+            elseif δx > 0
+                push_seg = true
             end
+        elseif xprev == 0
+            push_seg = true
+        end
+        if push_seg
+            push!(segments, i-1)
         end
         xprev = xnext
     end
     # Check whether the last point is zero
     if xprev == 0
-        δx = -s*x[end-1]
-        if δx > 0
+        if bothdirs
             push!(segments, lastindex(x)-1)
+        else
+            δx = -s*x[end-1]
+            if δx > 0
+                push!(segments, lastindex(x)-1)
+            end
         end
     end
     return segments
@@ -89,13 +106,13 @@ crossingpoints(t::AbstractVector,x::AbstractVector,
                                    xlev) for i in idx]
 
 
-function levelcrossings(t::AbstractVector, x::AbstractVector, xlev=0; up=true)
-    idx = levelcrossings_index(x, xlev; up=up)
+function levelcrossings(t::AbstractVector, x::AbstractVector, xlev=0; up=true, bothdirs=false)
+    idx = levelcrossings_index(x, xlev; up=up, bothdirs=bothdirs)
     return crossingpoints(t, x, idx, xlev)
 end
 
-levelcrossings(x::AbstractVector, xlev=0; up=true) =
-    levelcrossings(eachindex(x), x, xlev; up=up)
+levelcrossings(x::AbstractVector, xlev=0; up=true, bothdirs=false) =
+    levelcrossings(eachindex(x), x, xlev; up=up, bothdirs=bothdirs)
 
 
 
